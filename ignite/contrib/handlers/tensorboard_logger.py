@@ -10,7 +10,7 @@ from ignite.contrib.handlers.base_logger import (
     BaseWeightsHandler,
     BaseWeightsScalarHandler,
 )
-from ignite.engine import Engine, EventEnum, Events
+from ignite.engine import Engine, Events
 from ignite.handlers import global_step_from_engine
 
 __all__ = [
@@ -150,15 +150,18 @@ class TensorboardLogger(BaseLogger):
             from tensorboardX import SummaryWriter
         except ImportError:
             try:
-                from torch.utils.tensorboard import SummaryWriter  # type: ignore[no-redef]
+                from torch.utils.tensorboard import SummaryWriter
             except ImportError:
-                raise RuntimeError(
+                raise ModuleNotFoundError(
                     "This contrib module requires either tensorboardX or torch >= 1.2.0. "
                     "You may install tensorboardX with command: \n pip install tensorboardX \n"
                     "or upgrade PyTorch using your package manager of choice (pip or conda)."
                 )
 
         self.writer = SummaryWriter(*args, **kwargs)
+
+    def __getattr__(self, attr: Any) -> Any:
+        return getattr(self.writer, attr)
 
     def close(self) -> None:
         self.writer.close()
@@ -267,7 +270,7 @@ class OutputHandler(BaseOutputHandler):
             def global_step_transform(engine, event_name):
                 return engine.state.get_event_attrib_value(event_name)
 
-    ..  versionchanged:: 0.5.0
+    .. versionchanged:: 0.4.7
         accepts an optional list of `state_attributes`
     """
 
@@ -276,21 +279,21 @@ class OutputHandler(BaseOutputHandler):
         tag: str,
         metric_names: Optional[List[str]] = None,
         output_transform: Optional[Callable] = None,
-        global_step_transform: Optional[Callable] = None,
+        global_step_transform: Optional[Callable[[Engine, Union[str, Events]], int]] = None,
         state_attributes: Optional[List[str]] = None,
     ):
         super(OutputHandler, self).__init__(
             tag, metric_names, output_transform, global_step_transform, state_attributes
         )
 
-    def __call__(self, engine: Engine, logger: TensorboardLogger, event_name: Union[str, EventEnum]) -> None:
+    def __call__(self, engine: Engine, logger: TensorboardLogger, event_name: Union[str, Events]) -> None:
 
         if not isinstance(logger, TensorboardLogger):
             raise RuntimeError("Handler 'OutputHandler' works only with TensorboardLogger")
 
         metrics = self._setup_output_metrics_state_attrs(engine, key_tuple=False)
 
-        global_step = self.global_step_transform(engine, event_name)  # type: ignore[misc]
+        global_step = self.global_step_transform(engine, event_name)
         if not isinstance(global_step, int):
             raise TypeError(
                 f"global_step must be int, got {type(global_step)}."
@@ -414,7 +417,7 @@ class WeightsScalarHandler(BaseWeightsScalarHandler):
                 log_handler=WeightsScalarHandler(model, whitelist=has_bias_in_name)
             )
 
-    ..  versionchanged:: 0.5.0
+    ..  versionchanged:: 0.4.9
         optional argument `whitelist` added.
     """
 
@@ -495,7 +498,7 @@ class WeightsHistHandler(BaseWeightsHandler):
                 log_handler=WeightsHistHandler(model, whitelist=weight_selector)
             )
 
-    ..  versionchanged:: 0.5.0
+    ..  versionchanged:: 0.4.9
         optional argument `whitelist` added.
     """
 
@@ -578,7 +581,7 @@ class GradsScalarHandler(BaseWeightsScalarHandler):
                 log_handler=GradsScalarHandler(model, whitelist=is_in_fc_layer)
             )
 
-    ..  versionchanged:: 0.5.0
+    ..  versionchanged:: 0.4.9
         optional argument `whitelist` added.
     """
 
@@ -655,8 +658,8 @@ class GradsHistHandler(BaseWeightsHandler):
                 log_handler=GradsHistHandler(model, whitelist=has_shape_2_1)
             )
 
-    ..  versionchanged:: 0.5.0
-            optional argument `whitelist` added.
+    ..  versionchanged:: 0.4.9
+        optional argument `whitelist` added.
     """
 
     def __call__(self, engine: Engine, logger: TensorboardLogger, event_name: Union[str, Events]) -> None:

@@ -100,19 +100,19 @@ class ProgressBar(BaseLogger):
         Due to `tqdm notebook bugs <https://github.com/tqdm/tqdm/issues/594>`_, bar format may be needed to be set
         to an empty string value.
 
-    ..  versionchanged:: 0.5.0
+    .. versionchanged:: 0.4.7
         `attach` now accepts an optional list of `state_attributes`
 
     """
 
-    _events_order = [
+    _events_order: List[Union[Events, CallableEventWithFilter]] = [
         Events.STARTED,
         Events.EPOCH_STARTED,
         Events.ITERATION_STARTED,
         Events.ITERATION_COMPLETED,
         Events.EPOCH_COMPLETED,
         Events.COMPLETED,
-    ]  # type: List[Union[Events, CallableEventWithFilter]]
+    ]
 
     def __init__(
         self,
@@ -126,7 +126,7 @@ class ProgressBar(BaseLogger):
         try:
             from tqdm.autonotebook import tqdm
         except ImportError:
-            raise RuntimeError(
+            raise ModuleNotFoundError(
                 "This contrib module requires tqdm to be installed. "
                 "Please install it with command: \n pip install tqdm"
             )
@@ -206,7 +206,7 @@ class ProgressBar(BaseLogger):
             raise ValueError(f"Logging event {event_name.name} is not in allowed events for this engine")
 
         if isinstance(closing_event_name, CallableEventWithFilter):
-            if closing_event_name.filter != CallableEventWithFilter.default_event_filter:
+            if closing_event_name.filter is not None:
                 raise ValueError("Closing Event should not be a filtered event")
 
         if not self._compare_lt(event_name, closing_event_name):
@@ -223,7 +223,7 @@ class ProgressBar(BaseLogger):
         super(ProgressBar, self).attach(engine, log_handler, event_name)
         engine.add_event_handler(closing_event_name, self._close)
 
-    def attach_opt_params_handler(
+    def attach_opt_params_handler(  # type: ignore[empty-body]
         self, engine: Engine, event_name: Union[str, Events], *args: Any, **kwargs: Any
     ) -> RemovableEventHandle:
         """Intentionally empty"""
@@ -232,7 +232,7 @@ class ProgressBar(BaseLogger):
     def _create_output_handler(self, *args: Any, **kwargs: Any) -> "_OutputHandler":
         return _OutputHandler(*args, **kwargs)
 
-    def _create_opt_params_handler(self, *args: Any, **kwargs: Any) -> Callable:
+    def _create_opt_params_handler(self, *args: Any, **kwargs: Any) -> Callable:  # type: ignore[empty-body]
         """Intentionally empty"""
         pass
 

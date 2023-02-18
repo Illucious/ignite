@@ -180,14 +180,17 @@ class NeptuneLogger(BaseLogger):
         try:
             import neptune
         except ImportError:
-            raise RuntimeError(
+            raise ModuleNotFoundError(
                 "This contrib module requires neptune-client to be installed. "
                 "You may install neptune with command: \n pip install neptune-client \n"
             )
 
         if kwargs.get("offline_mode", False):
             self.mode = "offline"
-            neptune.init(project_qualified_name="dry-run/project", backend=neptune.OfflineBackend())
+            neptune.init(
+                project_qualified_name="dry-run/project",
+                backend=neptune.OfflineBackend(),
+            )
         else:
             self.mode = "online"
             neptune.init(api_token=kwargs.get("api_token"), project_qualified_name=kwargs.get("project_name"))
@@ -320,7 +323,7 @@ class OutputHandler(BaseOutputHandler):
             def global_step_transform(engine, event_name):
                 return engine.state.get_event_attrib_value(event_name)
 
-    ..  versionchanged:: 0.5.0
+    .. versionchanged:: 0.4.7
         accepts an optional list of `state_attributes`
     """
 
@@ -329,7 +332,7 @@ class OutputHandler(BaseOutputHandler):
         tag: str,
         metric_names: Optional[Union[str, List[str]]] = None,
         output_transform: Optional[Callable] = None,
-        global_step_transform: Optional[Callable] = None,
+        global_step_transform: Optional[Callable[[Engine, Union[str, Events]], int]] = None,
         state_attributes: Optional[List[str]] = None,
     ):
         super(OutputHandler, self).__init__(
@@ -343,7 +346,7 @@ class OutputHandler(BaseOutputHandler):
 
         metrics = self._setup_output_metrics_state_attrs(engine, key_tuple=False)
 
-        global_step = self.global_step_transform(engine, event_name)  # type: ignore[misc]
+        global_step = self.global_step_transform(engine, event_name)
 
         if not isinstance(global_step, int):
             raise TypeError(
@@ -496,7 +499,7 @@ class WeightsScalarHandler(BaseWeightsScalarHandler):
                 log_handler=WeightsScalarHandler(model, whitelist=has_bias_in_name)
             )
 
-    ..  versionchanged:: 0.5.0
+    ..  versionchanged:: 0.4.9
         optional argument `whitelist` added.
     """
 
@@ -604,7 +607,7 @@ class GradsScalarHandler(BaseWeightsScalarHandler):
                 log_handler=GradsScalarHandler(model, whitelist=is_in_fc_layer)
             )
 
-    ..  versionchanged:: 0.5.0
+    ..  versionchanged:: 0.4.9
         optional argument `whitelist` added.
     """
 

@@ -21,7 +21,7 @@ class StateParamScheduler(BaseParamScheduler):
         More precisely, whatever the state of the engine (newly created or used by another scheduler) the scheduler
         sets defined absolute values.
 
-    .. versionadded:: 0.5.0
+    .. versionadded:: 0.4.7
 
     """
 
@@ -59,7 +59,7 @@ class StateParamScheduler(BaseParamScheduler):
             setattr(engine.state, self.param_name, None)
 
         if self.save_history:
-            if not hasattr(engine.state, "param_history") or engine.state.param_history is None:  # type: ignore
+            if not hasattr(engine.state, "param_history") or engine.state.param_history is None:
                 setattr(engine.state, "param_history", {})
             engine.state.param_history.setdefault(self.param_name, [])  # type: ignore[attr-defined]
 
@@ -179,7 +179,7 @@ class LambdaStateScheduler(StateParamScheduler):
             1.0
             0.9
 
-    .. versionadded:: 0.5.0
+    .. versionadded:: 0.4.7
 
     """
 
@@ -256,7 +256,7 @@ class PiecewiseLinearStateScheduler(StateParamScheduler):
             0.64
             0.6
 
-    .. versionadded:: 0.5.0
+    .. versionadded:: 0.4.7
     """
 
     def __init__(
@@ -277,8 +277,8 @@ class PiecewiseLinearStateScheduler(StateParamScheduler):
                 f"Argument milestones_values should be with at least one value, but given {milestones_values}"
             )
 
-        values = []  # type: List[float]
-        milestones = []  # type: List[int]
+        values: List[float] = []
+        milestones: List[int] = []
         for pair in milestones_values:
             if not isinstance(pair, tuple) or len(pair) != 2:
                 raise ValueError("Argument milestones_values should be a list of pairs (milestone, param_value)")
@@ -369,7 +369,7 @@ class ExpStateScheduler(StateParamScheduler):
             0.7290...
             0.6561
 
-    .. versionadded:: 0.5.0
+    .. versionadded:: 0.4.7
 
     """
 
@@ -441,7 +441,7 @@ class StepStateScheduler(StateParamScheduler):
             0.6561
             0.5904...
 
-    .. versionadded:: 0.5.0
+    .. versionadded:: 0.4.7
 
     """
 
@@ -492,7 +492,7 @@ class MultiStepStateScheduler(StateParamScheduler):
             default_trainer = get_default_trainer()
 
             param_scheduler = MultiStepStateScheduler(
-                param_name="param", initial_value=1, gamma=0.9, milestones=[3, 6, 9, 12]
+                param_name="param", initial_value=1, gamma=0.9, milestones=[3, 6, 9, 12], create_new=True
             )
 
             # parameter is param, initial_value sets param to 1, gamma is set as 0.9
@@ -528,7 +528,7 @@ class MultiStepStateScheduler(StateParamScheduler):
             0.7290...
             0.6561
 
-    .. versionadded:: 0.5.0
+    .. versionadded:: 0.4.7
 
     """
 

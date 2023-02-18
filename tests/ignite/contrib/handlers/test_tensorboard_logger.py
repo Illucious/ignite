@@ -32,6 +32,17 @@ def test_optimizer_params_handler_wrong_setup():
         handler(mock_engine, mock_logger, Events.ITERATION_STARTED)
 
 
+def test_getattr_method():
+    # Create a mock SummaryWriter object
+    mock_writer = MagicMock()
+    # Assign the mock object to the writer attribute of a TensorboardLoggerinstance
+    logger = TensorboardLogger()
+    logger.writer = mock_writer
+    # Test that a method passed through the __getattr__ method calls thecorresponding method on the mock object
+    logger.add_scalar("loss", 0.5)
+    mock_writer.add_scalar.assert_called_once_with("loss", 0.5)
+
+
 def test_optimizer_params():
 
     optimizer = torch.optim.SGD([torch.tensor(0.0)], lr=0.01)
@@ -683,5 +694,5 @@ def test_no_torch_utils_tensorboard_package(dirname):
 
 def test_no_tensorboardX_nor_torch_utils_tensorboard():
     with patch.dict("sys.modules", {"tensorboardX": None, "torch.utils.tensorboard": None}):
-        with pytest.raises(RuntimeError, match=r"This contrib module requires either tensorboardX or torch"):
+        with pytest.raises(ModuleNotFoundError, match=r"This contrib module requires either tensorboardX or torch"):
             TensorboardLogger(log_dir=None)

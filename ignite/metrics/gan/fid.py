@@ -12,6 +12,12 @@ __all__ = [
 ]
 
 
+if Version(torch.__version__) <= Version("1.7.0"):
+    torch_outer = torch.ger
+else:
+    torch_outer = torch.outer
+
+
 def fid_score(
     mu1: torch.Tensor, mu2: torch.Tensor, sigma1: torch.Tensor, sigma2: torch.Tensor, eps: float = 1e-6
 ) -> float:
@@ -19,12 +25,12 @@ def fid_score(
     try:
         import numpy as np
     except ImportError:
-        raise RuntimeError("fid_score requires numpy to be installed.")
+        raise ModuleNotFoundError("fid_score requires numpy to be installed.")
 
     try:
         import scipy.linalg
     except ImportError:
-        raise RuntimeError("fid_score requires scipy to be installed.")
+        raise ModuleNotFoundError("fid_score requires scipy to be installed.")
 
     mu1, mu2 = mu1.cpu(), mu2.cpu()
     sigma1, sigma2 = sigma1.cpu(), sigma2.cpu()
@@ -169,12 +175,12 @@ class FID(_BaseInceptionMetric):
         try:
             import numpy as np  # noqa: F401
         except ImportError:
-            raise RuntimeError("This module requires numpy to be installed.")
+            raise ModuleNotFoundError("This module requires numpy to be installed.")
 
         try:
             import scipy  # noqa: F401
         except ImportError:
-            raise RuntimeError("This module requires scipy to be installed.")
+            raise ModuleNotFoundError("This module requires scipy to be installed.")
 
         if num_features is None and feature_extractor is None:
             num_features = 1000
@@ -193,22 +199,14 @@ class FID(_BaseInceptionMetric):
     def _online_update(features: torch.Tensor, total: torch.Tensor, sigma: torch.Tensor) -> None:
 
         total += features
-
-        if Version(torch.__version__) <= Version("1.7.0"):
-            sigma += torch.ger(features, features)
-        else:
-            sigma += torch.outer(features, features)
+        sigma += torch_outer(features, features)
 
     def _get_covariance(self, sigma: torch.Tensor, total: torch.Tensor) -> torch.Tensor:
         r"""
         Calculates covariance from mean and sum of products of variables
         """
 
-        if Version(torch.__version__) <= Version("1.7.0"):
-            sub_matrix = torch.ger(total, total)
-        else:
-            sub_matrix = torch.outer(total, total)
-
+        sub_matrix = torch_outer(total, total)
         sub_matrix = sub_matrix / self._num_examples
 
         return (sigma - sub_matrix) / (self._num_examples - 1)

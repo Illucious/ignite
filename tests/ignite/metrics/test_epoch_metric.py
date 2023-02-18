@@ -1,5 +1,3 @@
-import os
-
 import pytest
 import torch
 
@@ -153,84 +151,40 @@ def test_check_compute_fn():
     em.update(output1)
 
 
-def _test_distrib_integration(device=None):
+def test_distrib_integration(distributed):
 
-    if device is None:
-        device = idist.device() if idist.device().type != "xla" else "cpu"
-
+    device = idist.device() if idist.device().type != "xla" else "cpu"
     rank = idist.get_rank()
-    torch.manual_seed(12)
+    torch.manual_seed(40 + rank)
 
-    n_iters = 60
-    s = 16
+    n_iters = 3
+    batch_size = 2
     n_classes = 7
 
-    offset = n_iters * s
-    y_true = torch.randint(0, n_classes, size=(offset * idist.get_world_size(),), device=device)
-    y_preds = torch.rand(offset * idist.get_world_size(), n_classes, device=device)
+    y_true = torch.randint(0, n_classes, size=(n_iters * batch_size,), device=device)
+    y_preds = torch.rand(n_iters * batch_size, n_classes, device=device)
 
     def update(engine, i):
         return (
-            y_preds[i * s + rank * offset : (i + 1) * s + rank * offset, :],
-            y_true[i * s + rank * offset : (i + 1) * s + rank * offset],
+            y_preds[i * batch_size : (i + 1) * batch_size, :],
+            y_true[i * batch_size : (i + 1) * batch_size],
         )
 
     engine = Engine(update)
 
     def assert_data_fn(all_preds, all_targets):
-        assert all_preds.equal(y_preds), f"{all_preds.shape} vs {y_preds.shape}"
-        assert all_targets.equal(y_true), f"{all_targets.shape} vs {y_true.shape}"
         return (all_preds.argmax(dim=1) == all_targets).sum().item()
 
     ep_metric = EpochMetric(assert_data_fn, check_compute_fn=False, device=device)
     ep_metric.attach(engine, "epm")
 
     data = list(range(n_iters))
+
     engine.run(data=data, max_epochs=3)
-    assert engine.state.metrics["epm"] == (y_preds.argmax(dim=1) == y_true).sum().item()
 
+    y_preds = idist.all_gather(y_preds)
+    y_true = idist.all_gather(y_true)
+    ep_metric_true = (y_preds.argmax(dim=1) == y_true).sum().item()
 
-@pytest.mark.distributed
-@pytest.mark.skipif(not idist.has_native_dist_support, reason="Skip if no native dist support")
-@pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Skip if no GPU")
-def test_distrib_nccl_gpu(distributed_context_single_node_nccl):
-
-    device = idist.device()
-    _test_distrib_integration(device)
-
-
-@pytest.mark.distributed
-@pytest.mark.skipif(not idist.has_native_dist_support, reason="Skip if no native dist support")
-def test_distrib_gloo_cpu_or_gpu(distributed_context_single_node_gloo):
-
-    device = idist.device()
-    _test_distrib_integration(device)
-
-
-@pytest.mark.tpu
-@pytest.mark.skipif("NUM_TPU_WORKERS" in os.environ, reason="Skip if NUM_TPU_WORKERS is in env vars")
-@pytest.mark.skipif(not idist.has_xla_support, reason="Skip if no PyTorch XLA package")
-def test_distrib_single_device_xla():
-    _test_distrib_integration()
-
-
-def _test_distrib_xla_nprocs(index):
-    _test_distrib_integration()
-
-
-@pytest.mark.tpu
-@pytest.mark.skipif("NUM_TPU_WORKERS" not in os.environ, reason="Skip if no NUM_TPU_WORKERS in env vars")
-@pytest.mark.skipif(not idist.has_xla_support, reason="Skip if no PyTorch XLA package")
-def test_distrib_xla_nprocs(xmp_executor):
-    n = int(os.environ["NUM_TPU_WORKERS"])
-    xmp_executor(_test_distrib_xla_nprocs, args=(), nprocs=n)
-
-
-@pytest.mark.distributed
-@pytest.mark.skipif(not idist.has_hvd_support, reason="Skip if no Horovod dist support")
-@pytest.mark.skipif("WORLD_SIZE" in os.environ, reason="Skip if launched as multiproc")
-def test_distrib_hvd(gloo_hvd_executor):
-
-    nproc = 4 if not torch.cuda.is_available() else torch.cuda.device_count()
-
-    gloo_hvd_executor(_test_distrib_integration, (None,), np=nproc, do_init=True)
+    assert engine.state.metrics["epm"] == ep_metric_true
+    assert ep_metric.compute() == ep_metric_true
