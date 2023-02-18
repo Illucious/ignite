@@ -62,7 +62,8 @@ jobs:
 
       - name: Install Horovod with NCCL GPU ops
         run: |
-          HOROVOD_GPU_OPERATIONS=NCCL HOROVOD_WITH_PYTORCH=1 pip install horovod[pytorch]
+          # This env lack nvcc thus we can't use option: HOROVOD_GPU_OPERATIONS=NCCL
+          HOROVOD_WITH_PYTORCH=1 pip install horovod[pytorch]
           horovodrun --check-build
 
       - name: Install dependencies
