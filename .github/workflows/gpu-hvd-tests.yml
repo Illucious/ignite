@@ -47,17 +47,17 @@ jobs:
           python -c "import torch; print(torch.__version__, ', CUDA is available: ', torch.cuda.is_available()); exit(not torch.cuda.is_available())"
           pip list
 
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          pip install -e .
+
       - name: Install Horovod with NCCL GPU ops
         run: |
           # This env lack nvcc thus we can't use option: HOROVOD_GPU_OPERATIONS=NCCL
           HOROVOD_WITH_PYTORCH=1 pip install horovod[pytorch]
           horovodrun --check-build
           pip list
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements-dev.txt
-          pip install -e .
 
       - name: Run GPU and CPU Unit Tests
         run: |
